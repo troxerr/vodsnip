@@ -5,6 +5,7 @@ name: Windows app
 on:
   workflow_dispatch:
   push:
+    branches: ["**"]
     tags: ["v*"]
     paths:
       - "windows/**"
