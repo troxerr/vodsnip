@@ -36,6 +36,8 @@ final class DownloaderModel {
     var info: VideoInfo?
     /// True when the link was a channel that is streaming right now.
     var isLiveNow = false
+    /// Seconds recorded so far, for a live recording. Read again right before each download.
+    var liveEdge: Double?
     /// The video yt-dlp will download (for a live channel: its in-progress recording).
     var downloadURL: String?
     var mode: Mode = .entire
@@ -97,6 +99,7 @@ final class DownloaderModel {
                 info = try await videoInfo(url, tools: tools)
                 downloadURL = url
                 isLiveNow = true
+                liveEdge = info?.duration
                 mode = .startToNow
             }
             if mode == .startToNow && !isLiveNow { mode = .entire }
@@ -137,6 +140,8 @@ final class DownloaderModel {
     func makeRequest() throws -> DownloadRequest {
         guard let tools, let downloadURL else { throw AppError(message: "Fetch a link first.") }
         var range = DownloadRange.entire
+        // A recording that is still in progress has no end. The default downloader would keep waiting for the
+        // stream to finish; the native HLS downloader (see DownloadRequest.nativeHLS) stops at "now".
         if mode == .range {
             guard let start = TimeCode.parse(startText) else { throw AppError(message: "Start time must look like 01:23:45.") }
             var end: Double?
@@ -145,6 +150,7 @@ final class DownloaderModel {
                 guard e > start else { throw AppError(message: "End time must be after the start time.") }
                 end = e
             }
+            if isLiveNow, let edge = liveEdge { end = min(end ?? edge, edge) }
             if let d = info?.duration, start >= d {
                 throw AppError(message: "Start time is past the end of the video (\(TimeCode.format(d))).")
             }
@@ -155,13 +161,23 @@ final class DownloaderModel {
         }
         return DownloadRequest(
             url: downloadURL, outputDirectory: outputDirectory, range: range, quality: quality,
-            accurateCuts: accurateCuts, ffmpegPath: tools.ffmpeg?.path, cookiesPath: cookiesPath)
+            accurateCuts: accurateCuts, ffmpegPath: tools.ffmpeg?.path, cookiesPath: cookiesPath,
+            nativeHLS: isLiveNow && mode != .range)
     }
 
     func download() async {
         guard let tools else { return }
         let request: DownloadRequest
-        do { request = try makeRequest() } catch {
+        do {
+            if isLiveNow, let downloadURL {
+                phase = .fetching
+                // "Now" is the moment you click Download, so read the length again.
+                let fresh = try await videoInfo(downloadURL, tools: tools)
+                info = fresh
+                liveEdge = fresh.duration
+            }
+            request = try makeRequest()
+        } catch {
             phase = .failed(error.localizedDescription)
             return
         }

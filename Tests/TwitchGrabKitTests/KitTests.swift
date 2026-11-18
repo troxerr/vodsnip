@@ -110,3 +110,13 @@ import Testing
         #expect(try VideoList.decode(Data(json.utf8)).newestURL == "https://www.twitch.tv/videos/99")
     }
 }
+
+@Suite struct LiveRequestTests {
+    @Test func nativeHLSForLiveRecording() {
+        let a = DownloadRequest(url: "u", outputDirectory: "/tmp", nativeHLS: true).arguments()
+        let i = a.firstIndex(of: "--downloader")!
+        #expect(a[i + 1] == "m3u8:native")
+        #expect(!a.contains("--download-sections"))
+        #expect(!DownloadRequest(url: "u", outputDirectory: "/tmp").arguments().contains("--downloader"))
+    }
+}

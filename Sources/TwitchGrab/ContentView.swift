@@ -105,6 +105,10 @@ struct ContentView: View {
                 .disabled(model.isBusy)
                 Toggle("Frame-accurate cuts (slower)", isOn: $model.accurateCuts)
                     .disabled(model.isBusy)
+                if model.isLiveNow {
+                    Text("Ranges from a stream that's still live download at about real-time speed and can come up short. Use Start → now for speed, or cut the range after the stream ends.")
+                        .foregroundStyle(.secondary)
+                }
             }
             if model.mode == .startToNow {
                 Text("Downloads the live stream's recording from its start up to this moment.")

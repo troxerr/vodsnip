@@ -44,11 +44,15 @@ public struct DownloadRequest: Sendable {
     public var accurateCuts: Bool
     public var ffmpegPath: String?
     public var cookiesPath: String?
+    /// For a recording that is still in progress. yt-dlp's default would wait for the stream to end; the
+    /// native HLS downloader takes the fragments listed right now and stops.
+    public var nativeHLS: Bool
 
     public init(
         url: String, outputDirectory: String, range: DownloadRange = .entire, quality: Quality = .source,
-        accurateCuts: Bool = false, ffmpegPath: String? = nil, cookiesPath: String? = nil
+        accurateCuts: Bool = false, ffmpegPath: String? = nil, cookiesPath: String? = nil, nativeHLS: Bool = false
     ) {
+        self.nativeHLS = nativeHLS
         self.url = url
         self.outputDirectory = outputDirectory
         self.range = range
@@ -84,6 +88,7 @@ public struct DownloadRequest: Sendable {
             a += ["--download-sections", "*\(TimeCode.format(start))-\(end.map(TimeCode.format) ?? "inf")"]
             if accurateCuts { a.append("--force-keyframes-at-cuts") }
         }
+        if nativeHLS { a += ["--downloader", "m3u8:native"] }
         if let ffmpegPath { a += ["--ffmpeg-location", ffmpegPath] }
         if let cookiesPath, !cookiesPath.isEmpty { a += ["--cookies", cookiesPath] }
         a.append(url)
