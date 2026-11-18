@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vodsnip</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <section class="linkbar" aria-label="Twitch link">
+      <div class="field">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5a3 3 0 0 0 4.2 0l2.3-2.3a3 3 0 0 0-4.2-4.2l-.8.8M9.5 6.5a3 3 0 0 0-4.2 0L3 8.8A3 3 0 0 0 7.2 13l.8-.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <input id="url" type="text" spellcheck="false" autocomplete="off" placeholder="Paste a Twitch video or channel link">
+        <button id="clear" class="icon" title="Clear" aria-label="Clear link" hidden>&#10005;</button>
+      </div>
+      <button id="paste" title="Paste from clipboard and fetch">Paste</button>
+      <button id="fetch" class="accent">Fetch</button>
+    </section>
+
+    <div id="banner" class="banner" role="alert" hidden></div>
+    <div id="tools-missing" class="banner" hidden></div>
+
+    <section id="empty" class="empty">
+      <h1>Download any part of a Twitch stream</h1>
+      <p>Paste a link to a past broadcast (VOD) to save all of it or just a time range. Paste a live channel to save everything from the start until now.</p>
+    </section>
+
+    <section id="video" class="card video" hidden>
+      <div class="thumb"><img id="thumb" alt=""><span id="live-badge" class="live" hidden>LIVE</span></div>
+      <div class="meta">
+        <div id="title" class="title"></div>
+        <div id="uploader" class="sub"></div>
+        <div id="length" class="sub"></div>
+      </div>
+    </section>
+
+    <section id="options" class="card options" hidden>
+      <div class="row">
+        <label>Portion</label>
+        <div class="segmented" id="modes" role="radiogroup">
+          <button data-mode="entire" role="radio">Entire video</button>
+          <button data-mode="range" role="radio">Time range</button>
+          <button data-mode="startNow" role="radio">Start &rarr; now</button>
+        </div>
+      </div>
+      <div class="row" id="range-row" hidden>
+        <label>Range</label>
+        <div class="range">
+          <input id="start" type="text" value="00:00:00" aria-label="Start time" spellcheck="false">
+          <span>to</span>
+          <input id="end" type="text" placeholder="end" aria-label="End time" spellcheck="false">
+          <span id="range-len" class="sub"></span>
+        </div>
+      </div>
+      <p id="range-note" class="note" hidden></p>
+      <div class="row">
+        <label>Quality</label>
+        <select id="quality">
+          <option value="source">Source (best)</option>
+          <option value="p1080">1080p</option>
+          <option value="p720">720p</option>
+          <option value="p480">480p</option>
+          <option value="p360">360p</option>
+          <option value="audio">Audio only</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Save to</label>
+        <div class="folder"><span id="folder" class="path"></span><button id="choose">Choose&hellip;</button></div>
+      </div>
+      <details id="advanced">
+        <summary>Advanced</summary>
+        <div class="row">
+          <label>Cookies</label>
+          <div class="folder"><span id="cookies" class="path">None</span><button id="choose-cookies">Choose&hellip;</button><button id="clear-cookies" hidden>Remove</button></div>
+        </div>
+        <p class="note">Only needed for subscriber-only videos. Export a cookies.txt from your browser while signed in to Twitch.</p>
+        <label class="check"><input type="checkbox" id="accurate"> Frame-accurate cuts (slower)</label>
+      </details>
+    </section>
+
+    <details id="log-wrap" class="log" hidden><summary>Log</summary><pre id="log"></pre></details>
+  </main>
+
+  <footer id="actionbar">
+    <div id="bar-idle" class="bar">
+      <span id="summary" class="sub">Paste a link to begin</span>
+      <button id="download" class="accent" disabled>Download</button>
+    </div>
+    <div id="bar-busy" class="bar" hidden>
+      <div class="progress-wrap"><progress id="progress" max="1"></progress><span id="progress-text" class="sub"></span></div>
+      <button id="cancel">Cancel</button>
+    </div>
+    <div id="bar-done" class="bar" hidden>
+      <div class="saved"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#1a7f37"/><path d="M4.6 8.2l2.3 2.3 4.5-4.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><div class="title">Saved</div><div id="saved-name" class="sub"></div></div></div>
+      <div class="buttons"><button id="reveal">Show in folder</button><button id="again">Download again</button></div>
+    </div>
+  </footer>
+  <script src="main.js"></script>
+</body>
+</html>
