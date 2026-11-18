@@ -1,6 +1,6 @@
 #!/bin/zsh
-# Builds TwitchGrab and installs it to ~/Applications/TwitchGrab.app.
-# Build products live in ~/Library/Developer/TwitchGrab, outside the repo
+# Builds Vodsnip and installs it to ~/Applications/Vodsnip.app.
+# Build products live in ~/Library/Developer/Vodsnip, outside the repo
 # (and outside Dropbox or iCloud, which would try to sync them).
 #
 # Usage: ./build.sh            release build, install
@@ -8,7 +8,7 @@
 #        ./build.sh --open     install, then quit the running copy and open the new one
 set -euo pipefail
 here=${0:A:h}
-name="TwitchGrab"
+name="Vodsnip"
 scratch="$HOME/Library/Developer/$name/build"
 config=release
 [[ " $* " == *" --debug "* ]] && config=debug

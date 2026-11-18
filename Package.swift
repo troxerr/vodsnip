@@ -2,17 +2,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "TwitchGrab",
+    name: "Vodsnip",
     platforms: [.macOS(.v26)],
     targets: [
         // Rules and data logic with no SwiftUI, so tests run without the app.
-        .target(name: "TwitchGrabKit"),
+        .target(name: "VodsnipKit"),
         .executableTarget(
-            name: "TwitchGrab",
-            dependencies: ["TwitchGrabKit"],
+            name: "Vodsnip",
+            dependencies: ["VodsnipKit"],
             // App code runs on the main thread unless you say otherwise.
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
-        .testTarget(name: "TwitchGrabKitTests", dependencies: ["TwitchGrabKit"]),
+        .testTarget(name: "VodsnipKitTests", dependencies: ["VodsnipKit"]),
     ]
 )

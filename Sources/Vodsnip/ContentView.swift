@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import TwitchGrabKit
+import VodsnipKit
 
 /// One column, three zones: the link bar, what you chose (empty state, video, options), and the action bar.
 struct ContentView: View {
@@ -44,11 +44,11 @@ struct ContentView: View {
         }
         .animation(.snappy(duration: 0.25), value: model.info != nil)
         .task {
-            // TWITCHGRAB_URL=<link> TwitchGrab   open with a link already fetched (for screenshots and tests)
-            if let url = ProcessInfo.processInfo.environment["TWITCHGRAB_URL"], !url.isEmpty {
+            // VODSNIP_URL=<link> Vodsnip   open with a link already fetched (for screenshots and tests)
+            if let url = ProcessInfo.processInfo.environment["VODSNIP_URL"], !url.isEmpty {
                 model.urlText = url
                 await model.fetch()
-                if ProcessInfo.processInfo.environment["TWITCHGRAB_MODE"] == "range" {
+                if ProcessInfo.processInfo.environment["VODSNIP_MODE"] == "range" {
                     model.mode = .range
                     model.startText = "01:12:00"
                     model.endText = "01:45:30"
@@ -157,7 +157,7 @@ private struct ToolsMissingCard: View {
             Label("yt-dlp isn't installed", systemImage: "exclamationmark.triangle.fill")
                 .font(.headline)
                 .foregroundStyle(.orange)
-            Text("TwitchGrab uses yt-dlp and ffmpeg. Install them with Homebrew, then check again:")
+            Text("Vodsnip uses yt-dlp and ffmpeg. Install them with Homebrew, then check again:")
                 .foregroundStyle(.secondary)
             Text("brew install yt-dlp ffmpeg")
                 .font(.system(.body, design: .monospaced))

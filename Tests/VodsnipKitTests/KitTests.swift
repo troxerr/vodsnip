@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import TwitchGrabKit
+@testable import VodsnipKit
 
 @Suite struct TimeCodeTests {
     @Test func parses() {

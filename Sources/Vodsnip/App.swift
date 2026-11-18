@@ -2,12 +2,12 @@ import AppKit
 import SwiftUI
 
 @main
-struct TwitchGrabApp: App {
+struct VodsnipApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model = DownloaderModel()
 
     var body: some Scene {
-        Window("TwitchGrab", id: "main") {
+        Window("Vodsnip", id: "main") {
             ContentView()
                 .environment(model)
         }

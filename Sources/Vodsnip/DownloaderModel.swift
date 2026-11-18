@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 import Observation
-import TwitchGrabKit
+import VodsnipKit
 
 enum Mode: String, CaseIterable, Identifiable {
     case entire, range, startToNow
