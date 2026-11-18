@@ -59,4 +59,4 @@ The bama plugin has a skill for each step: `mac-design` (design rules),
 ## Windows app (`windows/`)
 - Tauri 2: Rust backend in `windows/src-tauri/src` (the same download logic as `Sources/VodsnipKit`, ported, with tests: `cd windows/src-tauri && cargo test`), plain HTML/CSS/JS front end in `windows/src`.
 - Run it on a Mac for UI and download checks: `cd windows && npx tauri dev`. Test hooks: `VODSNIP_URL=<link> VODSNIP_MODE=range VODSNIP_AUTO=download,cancel:20`.
-- The Windows installer bundles `yt-dlp.exe` and an LGPL `ffmpeg.exe` from `windows/src-tauri/bin-vendor/` (git ignores the .exe files). Not yet cross-built or run on Windows.
+- The Windows installer is built by `.github/workflows/windows.yml` on a Windows runner (tests, tool download with checksums, installer, silent-install check, installer as a download). The runner fetches `yt-dlp.exe` and an LGPL `ffmpeg.exe` itself. Not yet run.

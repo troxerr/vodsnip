@@ -1,0 +1,104 @@
+name: Windows app
+
+# Builds the Windows installer and runs the tests on a real Windows machine.
+# Run it by hand from the Actions tab (Run workflow), or push a change under windows/.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows/src-tauri
+
+      - name: Rust tests (on Windows)
+        working-directory: windows/src-tauri
+        run: cargo test
+
+      - name: Fetch yt-dlp.exe (official release, checksum verified)
+        run: |
+          $base = "https://github.com/yt-dlp/yt-dlp/releases/latest/download"
+          Invoke-WebRequest "$base/yt-dlp.exe" -OutFile yt-dlp.exe
+          Invoke-WebRequest "$base/SHA2-256SUMS" -OutFile yt-dlp-sums.txt
+          $want = ((Get-Content yt-dlp-sums.txt | Where-Object { $_ -match ' yt-dlp\.exe$' }) -split '\s+')[0]
+          $got = (Get-FileHash yt-dlp.exe -Algorithm SHA256).Hash.ToLower()
+          if (-not $want -or $want -ne $got) { throw "yt-dlp checksum mismatch ($want vs $got)" }
+          New-Item -ItemType Directory -Force src-tauri/bin-vendor | Out-Null
+          Move-Item yt-dlp.exe src-tauri/bin-vendor/yt-dlp.exe
+
+      - name: Fetch ffmpeg.exe (LGPL-only build, checksum verified)
+        # BtbN publishes separate GPL and LGPL builds. Only the LGPL one is used, so no GPL code ships.
+        run: |
+          $base = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest"
+          $zip = "ffmpeg-master-latest-win64-lgpl.zip"
+          Invoke-WebRequest "$base/$zip" -OutFile $zip
+          Invoke-WebRequest "$base/checksums.sha256" -OutFile ffmpeg-sums.txt
+          $want = ((Get-Content ffmpeg-sums.txt | Where-Object { $_ -match ([regex]::Escape($zip) + '$') }) -split '\s+')[0]
+          $got = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if (-not $want -or $want -ne $got) { throw "ffmpeg checksum mismatch ($want vs $got)" }
+          Expand-Archive $zip -DestinationPath ffmpeg-extract
+          Copy-Item ffmpeg-extract/*/bin/ffmpeg.exe, ffmpeg-extract/*/bin/ffprobe.exe src-tauri/bin-vendor/
+          $version = & src-tauri/bin-vendor/ffmpeg.exe -version
+          $version | Select-Object -First 3
+          if ($version -match '--enable-gpl') { throw "this ffmpeg build is GPL, not LGPL" }
+          if (-not ((& src-tauri/bin-vendor/ffmpeg.exe -protocols 2>&1) -match '^\s*https$')) { throw "this ffmpeg has no https support" }
+
+      - name: Bundled tools run
+        run: |
+          src-tauri/bin-vendor/yt-dlp.exe --version
+          src-tauri/bin-vendor/ffmpeg.exe -version | Select-Object -First 1
+
+      - name: Cut a 10 second range with the bundled tools
+        # A real end-to-end check of path handling, HTTPS and ffmpeg on Windows. Twitch can refuse
+        # requests from cloud machines, so a failure here is reported but does not fail the build.
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force $env:RUNNER_TEMP/cut | Out-Null
+          src-tauri/bin-vendor/yt-dlp.exe --no-playlist --newline --progress -f best `
+            --download-sections "*00:00:30-00:00:40" `
+            --ffmpeg-location src-tauri/bin-vendor/ffmpeg.exe `
+            -o "$env:RUNNER_TEMP/cut/%(id)s [%(title).40B].%(ext)s" `
+            https://www.twitch.tv/videos/2927770277
+          $f = Get-ChildItem $env:RUNNER_TEMP/cut -Filter *.mp4 | Select-Object -First 1
+          if (-not $f) { throw "no file was written" }
+          $d = [double](& src-tauri/bin-vendor/ffprobe.exe -v error -show_entries format=duration -of default=nw=1:nk=1 $f.FullName)
+          Write-Host "duration: $d s"
+          if ([math]::Abs($d - 10) -gt 0.5) { throw "expected about 10 s, got $d" }
+
+      - name: Install front-end tools
+        run: npm install --no-audit --no-fund
+
+      - name: Build the installer
+        run: npx tauri build
+
+      - name: Installer runs silently and installs
+        run: |
+          $exe = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter *.exe | Select-Object -First 1
+          Write-Host "installer: $($exe.Name) ($([math]::Round($exe.Length/1MB,1)) MB)"
+          Start-Process $exe.FullName -ArgumentList "/S" -Wait
+          $dir = Join-Path $env:LOCALAPPDATA "Vodsnip"
+          Get-ChildItem $dir -Recurse -File | Select-Object -First 20 FullName
+          if (-not (Test-Path "$dir/vodsnip.exe")) { throw "vodsnip.exe was not installed" }
+          if (-not (Test-Path "$dir/bin/yt-dlp.exe") -or -not (Test-Path "$dir/bin/ffmpeg.exe")) { throw "bundled tools are missing from the install" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vodsnip-windows-installer
+          path: windows/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
