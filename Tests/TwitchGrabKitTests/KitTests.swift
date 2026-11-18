@@ -50,6 +50,8 @@ import Testing
         #expect(!args.contains("--download-sections"))
         #expect(args.last == "https://www.twitch.tv/videos/1")
         #expect(args.contains("--merge-output-format"))
+        // Without --progress, --print silences the progress lines the app reads.
+        #expect(args.contains("--progress"))
     }
 
     @Test func section() {

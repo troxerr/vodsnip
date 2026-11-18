@@ -76,7 +76,8 @@ public struct DownloadRequest: Sendable {
 
     public func arguments() -> [String] {
         var a = [
-            "--no-playlist", "--newline", "--no-colors", "--no-simulate",
+            // --print makes yt-dlp quiet, which hides progress lines; --progress turns them back on.
+            "--no-playlist", "--newline", "--no-colors", "--no-simulate", "--progress",
             "--concurrent-fragments", "4", "--retries", "10", "--fragment-retries", "10",
             "-f", quality.selector,
             "--progress-template", Self.progressTemplate,
