@@ -1,15 +1,12 @@
 #!/bin/zsh
-# Downloads the two tools Vodsnip ships with into vendor/bin (git ignores that folder).
+# Downloads yt-dlp into vendor/bin (git ignores that folder): the official standalone macOS build from
+# github.com/yt-dlp/yt-dlp, checked against the release's SHA2-256SUMS file. License: Unlicense.
 #
-#   yt-dlp  the official standalone macOS build from github.com/yt-dlp/yt-dlp, checked against the release's
-#           SHA2-256SUMS file. License: Unlicense.
-#   ffmpeg  a static build from evermeet.cx, checked against the hash its own API reports.
+# Rerun it for every release: Twitch changes break old yt-dlp builds.
 #
-# LICENSE WARNING: that ffmpeg build is GPL. Shipping a GPL binary means you must offer its source and
-# license text with the app. For a no-strings build, use an LGPL-only static ffmpeg instead: put it at
-# vendor/bin/ffmpeg yourself and skip this script's ffmpeg step (FETCH_FFMPEG=0).
-#
-# Rerun any time to update yt-dlp: Twitch changes break old versions, so ship a fresh one with every release.
+# ffmpeg is NOT fetched here on purpose. Ready-made static builds bundle GPL and patent-encumbered codecs
+# (x264, x265, Xvid, faac), which is a heavy burden for a paid app. Put an LGPL-only ffmpeg at
+# vendor/bin/ffmpeg instead (build it with --disable-gpl --disable-nonfree from the official source).
 set -euo pipefail
 here=${0:A:h:h}
 vendor="$here/vendor/bin"
@@ -27,18 +24,4 @@ got=$(shasum -a 256 "$tmp/yt-dlp_macos" | awk '{print $1}')
 install -m 755 "$tmp/yt-dlp_macos" "$vendor/yt-dlp"
 echo "ok: $("$vendor/yt-dlp" --version)"
 
-if [[ "${FETCH_FFMPEG:-1}" == 1 ]]; then
-  echo "==> ffmpeg (evermeet.cx static build, GPL)"
-  info=$(curl -fsSL "https://evermeet.cx/ffmpeg/info/ffmpeg/release")
-  url=$(print -r -- "$info" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["download"]["zip"]["url"])')
-  want=$(print -r -- "$info" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["download"]["zip"]["sha256"])')
-  [[ "$url" == https://evermeet.cx/* && -n "$want" ]] || { echo "ERROR: unexpected ffmpeg API answer"; exit 1; }
-  curl -fsSL -o "$tmp/ffmpeg.zip" "$url"
-  got=$(shasum -a 256 "$tmp/ffmpeg.zip" | awk '{print $1}')
-  [[ "$want" == "$got" ]] || { echo "ERROR: ffmpeg checksum mismatch"; exit 1; }
-  mkdir "$tmp/ff" && unzip -q "$tmp/ffmpeg.zip" -d "$tmp/ff"
-  install -m 755 "$tmp/ff/ffmpeg" "$vendor/ffmpeg"
-  echo "ok: $("$vendor/ffmpeg" -version | head -1)"
-fi
-
-echo "vendor/bin is ready. Next: tools/release.sh"
+[[ -x "$vendor/ffmpeg" ]] || echo "NOTE: vendor/bin/ffmpeg is missing. See the comment at the top of this script."
