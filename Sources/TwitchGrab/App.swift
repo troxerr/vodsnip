@@ -11,7 +11,7 @@ struct TwitchGrabApp: App {
             ContentView()
                 .environment(model)
         }
-        .defaultSize(width: 580, height: 560)
+        .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Fetch Link") { Task { await model.fetch() } }
