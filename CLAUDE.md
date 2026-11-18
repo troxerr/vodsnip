@@ -50,3 +50,8 @@ The bama plugin has a skill for each step: `mac-design` (design rules),
 ## Git
 
 - Commit after each working change, with a message that says what the user can now do.
+
+## Releasing
+- `tools/fetch_vendor.sh` puts the official yt-dlp and a static ffmpeg in `vendor/bin` (git ignores it). Rerun it for every release: Twitch changes break old yt-dlp builds. The ffmpeg it fetches is GPL, so ship its license and source offer, or drop in an LGPL build.
+- `tools/release.sh` builds `dist/Vodsnip-<version>.dmg`. With a Developer ID certificate and `NOTARY_PROFILE` it signs with the hardened runtime, notarizes and staples. Without them it builds an ad hoc DMG that runs on this Mac only.
+- The app looks for its tools in `Contents/Resources/bin` first, then Homebrew and PATH.

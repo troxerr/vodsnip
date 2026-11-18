@@ -7,7 +7,16 @@ public struct Tools: Sendable {
 }
 
 public enum ToolLocator {
-    static let searchDirs = [
+    /// Tools shipped inside the app (Contents/Resources/bin, filled in by tools/release.sh). Looked at first, so a
+    /// customer needs no Homebrew. A plain developer build has no such folder and falls through to the system.
+    static let bundledDir: String? = {
+        guard let dir = Bundle.main.resourceURL?.appendingPathComponent("bin").path,
+            FileManager.default.fileExists(atPath: dir)
+        else { return nil }
+        return dir
+    }()
+
+    static let searchDirs = (bundledDir.map { [$0] } ?? []) + [
         "/opt/homebrew/bin", "/usr/local/bin", "/opt/homebrew/opt/ffmpeg-full/bin", "/opt/homebrew/opt/ffmpeg/bin",
         "/opt/local/bin", NSHomeDirectory() + "/.local/bin",
     ]

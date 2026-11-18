@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<!-- yt-dlp_macos is a PyInstaller bundle: it unpacks and loads its own Python at run time, which the
+     hardened runtime blocks without these two. ffmpeg needs neither but they do it no harm. -->
+<key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+<key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict></plist>
