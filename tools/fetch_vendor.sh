@@ -5,8 +5,8 @@
 # Rerun it for every release: Twitch changes break old yt-dlp builds.
 #
 # ffmpeg is NOT fetched here on purpose. Ready-made static builds bundle GPL and patent-encumbered codecs
-# (x264, x265, Xvid, faac), which is a heavy burden for a paid app. Put an LGPL-only ffmpeg at
-# vendor/bin/ffmpeg instead (build it with --disable-gpl --disable-nonfree from the official source).
+# (x264, x265, Xvid, faac), which is a heavy burden for a paid app. Run tools/build_ffmpeg.sh for an LGPL-only one at
+# vendor/bin/ffmpeg.
 set -euo pipefail
 here=${0:A:h:h}
 vendor="$here/vendor/bin"

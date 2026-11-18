@@ -55,6 +55,7 @@ if [[ -x "$vendor/yt-dlp" && -x "$vendor/ffmpeg" ]]; then
   step "Bundling yt-dlp and ffmpeg"
   mkdir -p "$app/Contents/Resources/bin"
   cp -X "$vendor/yt-dlp" "$vendor/ffmpeg" "$app/Contents/Resources/bin/"
+  [[ -x "$vendor/ffprobe" ]] && cp -X "$vendor/ffprobe" "$app/Contents/Resources/bin/"
 elif [[ "$release" == 1 ]]; then
   echo "ERROR: vendor/bin/yt-dlp and vendor/bin/ffmpeg are missing. Run tools/fetch_vendor.sh first."
   exit 1

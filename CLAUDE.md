@@ -52,6 +52,6 @@ The bama plugin has a skill for each step: `mac-design` (design rules),
 - Commit after each working change, with a message that says what the user can now do.
 
 ## Releasing
-- `tools/fetch_vendor.sh` puts the official yt-dlp in `vendor/bin` (git ignores it). Rerun it for every release: Twitch changes break old yt-dlp builds. ffmpeg must be an LGPL-only build placed at `vendor/bin/ffmpeg` (static builds from the web bundle GPL codecs).
+- `tools/fetch_vendor.sh` puts the official yt-dlp in `vendor/bin` (git ignores it). Rerun it for every release: Twitch changes break old yt-dlp builds. ffmpeg and ffprobe come from `tools/build_ffmpeg.sh`, an LGPL-only build from the official source (ready-made static builds bundle GPL codecs). Mention FFmpeg and the LGPL in About or on the site.
 - `tools/release.sh` builds `dist/Vodsnip-<version>.dmg`. With a Developer ID certificate and `NOTARY_PROFILE` it signs with the hardened runtime, notarizes and staples. Without them it builds an ad hoc DMG that runs on this Mac only.
 - The app looks for its tools in `Contents/Resources/bin` first, then Homebrew and PATH.
