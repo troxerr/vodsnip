@@ -202,7 +202,16 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && s.phase ==
   if (!s.tools.ytdlp) showError('Vodsnip could not find yt-dlp. Reinstall the app, or put yt-dlp on your PATH.');
   else if (!s.tools.ffmpeg) showError('ffmpeg was not found, so cutting and merging will fail. Reinstall the app.', true);
   render();
-  const q = new URLSearchParams(location.search);
-  // Test hooks: ?url=<link>&mode=range
-  if (q.get('url')) { $('url').value = q.get('url'); await fetchLink(); if (q.get('mode')) { s.mode = q.get('mode'); render(); } }
+  // Test hooks (see startup_hooks in lib.rs).
+  const hooks = await invoke('startup_hooks');
+  if (hooks.url) {
+    $('url').value = hooks.url;
+    await fetchLink();
+    if (hooks.mode) { s.mode = hooks.mode; render(); }
+    if (hooks.auto?.startsWith('download') && s.phase === 'ready') {
+      download();
+      const m = hooks.auto.match(/cancel:(\d+)/);
+      if (m) setTimeout(() => invoke('cancel_download'), Number(m[1]) * 1000);
+    }
+  }
 })();

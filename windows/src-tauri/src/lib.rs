@@ -256,6 +256,13 @@ fn tools_status(app: AppHandle) -> serde_json::Value {
     })
 }
 
+/// Test hooks: VODSNIP_URL=<link> VODSNIP_MODE=range VODSNIP_AUTO=download[,cancel:<seconds>]
+#[tauri::command]
+fn startup_hooks() -> serde_json::Value {
+    let get = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+    serde_json::json!({ "url": get("VODSNIP_URL"), "mode": get("VODSNIP_MODE"), "auto": get("VODSNIP_AUTO") })
+}
+
 #[tauri::command]
 fn default_output_dir() -> String {
     let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from).unwrap_or_default();
@@ -272,6 +279,7 @@ pub fn run() {
             start_download,
             cancel_download,
             tools_status,
+            startup_hooks,
             default_output_dir
         ])
         .run(tauri::generate_context!())

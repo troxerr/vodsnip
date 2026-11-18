@@ -55,3 +55,8 @@ The bama plugin has a skill for each step: `mac-design` (design rules),
 - `tools/fetch_vendor.sh` puts the official yt-dlp in `vendor/bin` (git ignores it). Rerun it for every release: Twitch changes break old yt-dlp builds. ffmpeg and ffprobe come from `tools/build_ffmpeg.sh`, an LGPL-only build from the official source (ready-made static builds bundle GPL codecs). Mention FFmpeg and the LGPL in About or on the site.
 - `tools/release.sh` builds `dist/Vodsnip-<version>.dmg`. With a Developer ID certificate and `NOTARY_PROFILE` it signs with the hardened runtime, notarizes and staples. Without them it builds an ad hoc DMG that runs on this Mac only.
 - The app looks for its tools in `Contents/Resources/bin` first, then Homebrew and PATH.
+
+## Windows app (`windows/`)
+- Tauri 2: Rust backend in `windows/src-tauri/src` (the same download logic as `Sources/VodsnipKit`, ported, with tests: `cd windows/src-tauri && cargo test`), plain HTML/CSS/JS front end in `windows/src`.
+- Run it on a Mac for UI and download checks: `cd windows && npx tauri dev`. Test hooks: `VODSNIP_URL=<link> VODSNIP_MODE=range VODSNIP_AUTO=download,cancel:20`.
+- The Windows installer bundles `yt-dlp.exe` and an LGPL `ffmpeg.exe` from `windows/src-tauri/bin-vendor/` (git ignores the .exe files). Not yet cross-built or run on Windows.
