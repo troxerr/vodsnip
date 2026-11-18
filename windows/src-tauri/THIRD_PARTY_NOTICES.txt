@@ -1,0 +1,15 @@
+Vodsnip bundles these programs. They are separate works under their own licenses.
+
+FFmpeg (ffmpeg.exe, ffprobe.exe)
+  License: GNU Lesser General Public License, version 2.1 or later. The full text is in bin\ffmpeg-LICENSE.txt.
+  This is an LGPL-only build (no GPL components) from https://github.com/BtbN/FFmpeg-Builds.
+  FFmpeg source code: https://ffmpeg.org/download.html
+  You may replace these files with your own build of FFmpeg.
+
+yt-dlp (yt-dlp.exe)
+  License: The Unlicense (public domain dedication). https://github.com/yt-dlp/yt-dlp
+  The executable also contains Python and other libraries under their own licenses; see the yt-dlp project.
+
+Vodsnip itself uses Tauri (MIT or Apache-2.0), https://tauri.app, and the Microsoft Edge WebView2 runtime.
+
+Vodsnip is not affiliated with or endorsed by Twitch. Download only content you have the right to save.
