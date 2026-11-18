@@ -12,6 +12,13 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # Signing is on only when the Azure secrets exist (see docs/WINDOWS_SIGNING.md). Without them
+      # the build still works and produces an unsigned installer.
+      SIGN: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_TENANT_ID != '' && vars.AZURE_SIGNING_ACCOUNT != '' }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     defaults:
       run:
         shell: pwsh
@@ -84,8 +91,19 @@ jobs:
       - name: Install front-end tools
         run: npm install --no-audit --no-fund
 
+      - name: Set up Azure Trusted Signing
+        if: env.SIGN == 'true'
+        # Tauri calls signCommand for vodsnip.exe and for the installer. The endpoint is the region of
+        # the signing account, e.g. https://eus.codesigning.azure.net
+        run: |
+          cargo install trusted-signing-cli --locked
+          $cmd = "trusted-signing-cli -e ${{ vars.AZURE_SIGNING_ENDPOINT }} -a ${{ vars.AZURE_SIGNING_ACCOUNT }} -c ${{ vars.AZURE_SIGNING_PROFILE }} -d Vodsnip %1"
+          @{ bundle = @{ windows = @{ signCommand = $cmd } } } | ConvertTo-Json -Depth 5 | Set-Content src-tauri/tauri.signing.conf.json
+
       - name: Build the installer
-        run: npx tauri build
+        run: |
+          if ($env:SIGN -eq 'true') { npx tauri build --config src-tauri/tauri.signing.conf.json }
+          else { npx tauri build }
 
       - name: Installer runs silently and installs
         run: |
@@ -96,6 +114,16 @@ jobs:
           Get-ChildItem $dir -Recurse -File | Select-Object -First 20 FullName
           if (-not (Test-Path "$dir/vodsnip.exe")) { throw "vodsnip.exe was not installed" }
           if (-not (Test-Path "$dir/bin/yt-dlp.exe") -or -not (Test-Path "$dir/bin/ffmpeg.exe")) { throw "bundled tools are missing from the install" }
+
+      - name: Signatures are valid
+        if: env.SIGN == 'true'
+        run: |
+          $files = @(Get-ChildItem src-tauri/target/release/bundle/nsis -Filter *.exe) + (Get-Item "$env:LOCALAPPDATA/Vodsnip/vodsnip.exe")
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            Write-Host "$($f.Name): $($sig.Status) $($sig.SignerCertificate.Subject)"
+            if ($sig.Status -ne 'Valid') { throw "$($f.Name) is not validly signed ($($sig.Status))" }
+          }
 
       - uses: actions/upload-artifact@v4
         with:
