@@ -96,7 +96,7 @@ jobs:
           if ([math]::Abs($d - 10) -gt 0.5) { throw "expected about 10 s, got $d" }
 
       - name: Install front-end tools
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Set up Azure Trusted Signing
         if: env.SIGN == 'true'
@@ -122,6 +122,10 @@ jobs:
           if (-not (Test-Path "$dir/vodsnip.exe")) { throw "vodsnip.exe was not installed" }
           if (-not (Test-Path "$dir/bin/yt-dlp.exe") -or -not (Test-Path "$dir/bin/ffmpeg.exe")) { throw "bundled tools are missing from the install" }
           if (-not (Test-Path "$dir/bin/ffmpeg-LICENSE.txt") -or -not (Test-Path "$dir/THIRD_PARTY_NOTICES.txt")) { throw "license files are missing from the install" }
+
+      - name: Installed app saves and cancels a download
+        timeout-minutes: 5
+        run: node tools/smoke.mjs "$env:LOCALAPPDATA/Vodsnip/vodsnip.exe"
 
       - name: Signatures are valid
         if: env.SIGN == 'true'

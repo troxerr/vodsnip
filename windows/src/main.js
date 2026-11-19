@@ -1,6 +1,6 @@
 const { invoke, Channel } = window.__TAURI__.core;
 const { open } = window.__TAURI__.dialog;
-const { revealItemInDir, openPath } = window.__TAURI__.opener;
+const { revealItemInDir } = window.__TAURI__.opener;
 const $ = (id) => document.getElementById(id);
 
 const store = {
@@ -11,6 +11,7 @@ const store = {
 const s = {
   phase: 'idle',            // idle | fetching | ready | downloading | done
   info: null, downloadUrl: null, isLiveNow: false, liveEdge: null,
+  cancelling: false, downloadStarted: false, notice: '',
   mode: 'entire', outputDir: '', cookies: store.get('cookies', ''),
   progress: null, file: null, log: [], tools: null,
 };
@@ -20,10 +21,11 @@ function parseTime(text) {
   const t = text.trim();
   if (!t) return null;
   const parts = t.split(':');
-  if (parts.length > 3 || parts.some((p) => !/^\d+(\.\d+)?$|^\.\d+$/.test(p))) return null;
+  if (parts.length > 3 || parts.some((p) => !/^(?:\d+\.?\d*|\.\d+)$/.test(p))) return null;
   const v = parts.map(Number);
   if (v.slice(1).some((x) => x >= 60)) return null;
-  return v.reduce((a, x) => a * 60 + x, 0);
+  const seconds = v.reduce((a, x) => a * 60 + x, 0);
+  return Number.isFinite(seconds) ? seconds : null;
 }
 function fmt(sec) {
   const t = Math.max(0, Math.round(sec));
@@ -45,7 +47,9 @@ function render() {
   $('empty').hidden = hasVideo || s.phase === 'fetching';
   $('video').hidden = !hasVideo;
   $('options').hidden = !hasVideo;
+  const busy = s.phase === 'downloading' || s.phase === 'fetching';
   $('clear').hidden = !$('url').value;
+  $('clear').disabled = busy;
   $('fetch').disabled = !$('url').value.trim() || s.phase === 'fetching' || s.phase === 'downloading' || !s.tools?.ytdlp;
   $('fetch').textContent = s.phase === 'fetching' ? 'Looking up…' : 'Fetch';
 
@@ -62,9 +66,8 @@ function render() {
     if (b.dataset.mode === 'startNow') b.disabled = !s.isLiveNow;
   });
   $('range-row').hidden = s.mode !== 'range';
-  updateRangeNote();
-
-  const busy = s.phase === 'downloading' || s.phase === 'fetching';
+  const error = rangeError();
+  updateRangeNote(error);
   document.querySelectorAll('#options button, #options input, #options select, #url, #paste').forEach((el) => (el.disabled = busy || (el.dataset?.mode === 'startNow' && !s.isLiveNow)));
 
   $('folder').textContent = s.outputDir;
@@ -75,9 +78,13 @@ function render() {
   $('bar-idle').hidden = s.phase === 'downloading' || s.phase === 'done';
   $('bar-busy').hidden = s.phase !== 'downloading';
   $('bar-done').hidden = s.phase !== 'done';
-  $('download').disabled = !(hasVideo && (s.phase === 'ready'));
+  $('download').disabled = !(hasVideo && s.phase === 'ready' && s.tools?.ffmpeg && !error);
+  $('cancel').disabled = s.cancelling;
+  $('cancel').textContent = s.cancelling ? 'Cancelling…' : 'Cancel';
   $('summary').textContent = !hasVideo ? 'Paste a link to begin'
     : s.mode === 'entire' ? 'Whole video' : s.mode === 'startNow' ? 'From the start until now' : 'Selected range';
+
+  if (s.notice && s.phase === 'ready') $('summary').textContent = s.notice;
 
   if (s.phase === 'downloading') {
     const p = s.progress;
@@ -88,27 +95,54 @@ function render() {
     if (p?.downloaded_bytes != null) parts.push(bytes(p.downloaded_bytes));
     if (p?.speed != null) parts.push(bytes(p.speed) + '/s');
     if (p?.eta != null) parts.push(fmt(p.eta) + ' left');
-    $('progress-text').textContent = p ? (parts.join(' · ') || 'Working…') : 'Starting…';
+    $('progress-text').textContent = s.cancelling ? 'Waiting for the download to stop…'
+      : !p ? 'Preparing…' : p.fraction >= 1 ? 'Finalizing…'
+      : ['Downloading', ...parts].join(' · ');
   }
   if (s.phase === 'done') $('saved-name').textContent = s.file ? s.file.split(/[\\/]/).pop() : s.outputDir;
+  $('open-file').hidden = !s.file;
 
   $('log-wrap').hidden = s.log.length === 0;
   $('log').textContent = s.log.join('\n');
 }
 
-function updateRangeNote() {
+function rangeError() {
+  if (s.mode !== 'range' || !s.info) return null;
+  const start = parseTime($('start').value);
+  const endText = $('end').value.trim();
+  const end = parseTime(endText);
+  const limit = s.liveEdge ?? s.info.duration;
+  if (start === null) return { field: 'start', message: 'Enter a start time, such as 1:30.' };
+  if (limit != null && start >= limit) return { field: 'start', message: 'Start time must be before the end of the recording.' };
+  if (endText && end === null) return { field: 'end', message: 'Enter an end time or leave it blank.' };
+  if (end !== null && end <= start) return { field: 'end', message: 'End time must be after the start time.' };
+  if (!s.isLiveNow && end !== null && limit != null && end > limit) {
+    return { field: 'end', message: 'End time must be within the video.' };
+  }
+  return null;
+}
+
+function updateRangeNote(error) {
+  const errorLabel = $('range-error');
+  errorLabel.textContent = error?.message ?? '';
+  errorLabel.hidden = !error;
+  for (const id of ['start', 'end']) {
+    $(id).classList.toggle('bad', error?.field === id);
+    $(id).setAttribute('aria-invalid', String(error?.field === id));
+  }
+
   const note = $('range-note');
   note.hidden = true;
   note.classList.remove('warn');
-  if (s.mode === 'range') {
-    const a = parseTime($('start').value), b = $('end').value.trim() ? parseTime($('end').value) : null;
-    $('start').classList.toggle('bad', a === null && $('start').value.trim() !== '');
-    $('end').classList.toggle('bad', $('end').value.trim() !== '' && b === null);
-    const end = b ?? s.info?.duration;
-    $('range-len').textContent = a !== null && end != null && end > a ? `${fmt(end - a)} long` : '';
+  if (s.mode === 'range' && s.info) {
+    const start = parseTime($('start').value);
+    const end = parseTime($('end').value) ?? s.info.duration;
+    const effectiveEnd = s.liveEdge != null && end != null ? Math.min(end, s.liveEdge) : end;
+    $('range-len').textContent = !error && start != null && effectiveEnd != null
+      ? `${fmt(effectiveEnd - start)} long` : '';
     if (s.isLiveNow) {
       note.hidden = false; note.classList.add('warn');
-      note.textContent = 'Ranges from a live stream download in real time, so they take a while. "Start → now" is much faster.';
+      note.textContent = 'Live ranges download in real time. Start → now is faster.';
     }
   } else if (s.mode === 'startNow') {
     note.hidden = false;
@@ -116,12 +150,23 @@ function updateRangeNote() {
   }
 }
 
+function resetLink() {
+  Object.assign(s, {
+    phase: 'idle', info: null, downloadUrl: null, isLiveNow: false, liveEdge: null,
+    file: null, progress: null, log: [], notice: '',
+  });
+  $('start').value = '00:00:00';
+  $('end').value = '';
+  showError('');
+  render();
+}
+
 // ---------- actions ----------
 async function fetchLink() {
   const url = $('url').value.trim();
-  if (!url) return;
-  showError('');
-  s.phase = 'fetching'; s.info = null; s.downloadUrl = null; s.isLiveNow = false; s.progress = null; render();
+  if (!url || $('fetch').disabled) return;
+  resetLink();
+  s.phase = 'fetching'; render();
   try {
     const r = await invoke('fetch_video', { url, cookies: s.cookies });
     s.info = r.info; s.downloadUrl = r.downloadUrl; s.isLiveNow = r.isLiveNow; s.liveEdge = r.liveEdge;
@@ -134,23 +179,32 @@ async function fetchLink() {
   render();
 }
 
-async function download() {
+async function download(cancelOnProgress = false) {
+  if (s.phase !== 'ready' || $('download').disabled) return;
   showError('');
-  s.phase = 'downloading'; s.progress = null; s.log = []; s.file = null; render();
+  Object.assign(s, { phase: 'downloading', cancelling: false, downloadStarted: false, notice: '', progress: null, log: [], file: null });
+  render();
   const channel = new Channel();
+  let active = true;
   channel.onmessage = ({ event, data }) => {
+    if (!active) return;
     switch (event) {
+      case 'started':
+        s.downloadStarted = true;
+        if (s.cancelling) sendCancellation();
+        break;
       case 'length': s.info.duration = data.seconds; s.liveEdge = data.seconds; $('length').textContent = `${fmt(data.seconds)} recorded so far`; break;
-      case 'progress': s.progress = data; break;
+      case 'progress':
+        s.progress = data;
+        if (cancelOnProgress && !s.cancelling) cancelDownload();
+        break;
       case 'log': s.log.push(data.line); if (s.log.length > 200) s.log.shift(); break;
-      case 'done': s.phase = 'done'; s.file = data.file; if (s.progress) s.progress.fraction = 1; break;
-      case 'failed': s.phase = 'ready'; showError(data.message); break;
-      case 'cancelled': s.phase = 'ready'; s.log.push('Cancelled.'); break;
     }
     render();
   };
+  let result;
   try {
-    await invoke('start_download', {
+    result = await invoke('start_download', {
       params: {
         downloadUrl: s.downloadUrl, mode: s.mode,
         startText: $('start').value, endText: $('end').value,
@@ -161,7 +215,33 @@ async function download() {
       onEvent: channel,
     });
   } catch (e) {
-    s.phase = 'ready'; showError(String(e)); render();
+    result = { event: 'failed', data: { message: String(e) } };
+  }
+  active = false;
+  s.cancelling = false;
+  const { event, data } = result;
+  s.phase = event === 'done' ? 'done' : 'ready';
+  if (event === 'done') s.file = data.file;
+  if (event === 'failed') showError(data.message);
+  if (event === 'cancelled') s.notice = 'Cancelled. Partial files may be reused on retry.';
+  render();
+  return { event, ...data };
+}
+
+function cancelDownload() {
+  if (s.phase !== 'downloading' || s.cancelling) return;
+  s.cancelling = true;
+  render();
+  if (s.downloadStarted) sendCancellation();
+}
+
+async function sendCancellation() {
+  try {
+    await invoke('cancel_download');
+  } catch (e) {
+    s.cancelling = false;
+    showError(String(e));
+    render();
   }
 }
 
@@ -175,26 +255,33 @@ async function chooseCookies() {
 }
 
 // ---------- wiring ----------
-$('url').addEventListener('input', render);
+$('url').addEventListener('input', resetLink);
 $('url').addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchLink(); });
-$('clear').onclick = () => { $('url').value = ''; $('url').focus(); render(); };
+$('clear').onclick = () => { $('url').value = ''; $('url').focus(); resetLink(); };
 $('fetch').onclick = fetchLink;
 $('paste').onclick = async () => {
-  try { $('url').value = (await navigator.clipboard.readText()).trim(); } catch { return; }
-  render(); fetchLink();
+  let url;
+  try { url = (await navigator.clipboard.readText()).trim(); } catch { return; }
+  if ($('paste').disabled) return;
+  $('url').value = url;
+  render();
+  fetchLink();
 };
 document.querySelectorAll('#modes button').forEach((b) => (b.onclick = () => { s.mode = b.dataset.mode; render(); }));
-['start', 'end'].forEach((id) => $(id).addEventListener('input', updateRangeNote));
+['start', 'end'].forEach((id) => $(id).addEventListener('input', render));
 $('choose').onclick = chooseFolder;
 $('choose-cookies').onclick = chooseCookies;
 $('clear-cookies').onclick = () => { s.cookies = ''; store.set('cookies', ''); render(); };
-$('download').onclick = download;
+$('download').onclick = () => download();
 $('again').onclick = () => { s.phase = 'ready'; render(); download(); };
-$('cancel').onclick = () => invoke('cancel_download');
-$('reveal').onclick = async () => {
-  try { if (s.file) await revealItemInDir(s.file); else await openPath(s.outputDir); } catch { try { await openPath(s.outputDir); } catch {} }
+$('cancel').onclick = cancelDownload;
+$('open-file').onclick = async () => {
+  try { await invoke('open_saved_file'); } catch (e) { showError(String(e)); }
 };
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && s.phase === 'downloading') invoke('cancel_download'); });
+$('reveal').onclick = async () => {
+  try { await revealItemInDir(s.file); } catch (e) { showError(String(e)); }
+};
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') cancelDownload(); });
 
 (async function init() {
   s.outputDir = store.get('outputDir', '') || await invoke('default_output_dir');
@@ -205,13 +292,27 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && s.phase ==
   // Test hooks (see startup_hooks in lib.rs).
   const hooks = await invoke('startup_hooks');
   if (hooks.url) {
+    if (hooks.smokeDir) s.outputDir = hooks.smokeDir;
     $('url').value = hooks.url;
+    render();
     await fetchLink();
     if (hooks.mode) { s.mode = hooks.mode; render(); }
     if (hooks.auto?.startsWith('download') && s.phase === 'ready') {
-      download();
-      const m = hooks.auto.match(/cancel:(\d+)/);
-      if (m) setTimeout(() => invoke('cancel_download'), Number(m[1]) * 1000);
+      if (hooks.smokeDir && s.mode === 'range') {
+        $('start').value = '2';
+        $('end').value = '12';
+        render();
+      }
+      const job = download(hooks.smokeDir && hooks.auto === 'download,cancel-on-progress');
+      const delayed = hooks.auto.match(/cancel:(\d+)/);
+      const timer = delayed ? setTimeout(cancelDownload, Number(delayed[1]) * 1000) : null;
+      const result = await job;
+      clearTimeout(timer);
+      if (hooks.smokeDir) {
+        await invoke('report_smoke_result', { result: result ?? { event: 'downloadBlocked' } });
+      }
+    } else if (hooks.smokeDir) {
+      await invoke('report_smoke_result', { result: { event: 'fetchFailed', message: $('banner').textContent } });
     }
   }
 })();

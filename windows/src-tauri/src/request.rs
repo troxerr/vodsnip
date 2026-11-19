@@ -67,7 +67,7 @@ impl DownloadRequest {
         let dir = self.output_directory.trim_end_matches(['/', '\\']);
         let mut a: Vec<String> = [
             // --print makes yt-dlp quiet, which hides progress lines; --progress turns them back on.
-            "--no-playlist", "--newline", "--no-colors", "--no-simulate", "--progress",
+            "--no-playlist", "--newline", "--no-colors", "--no-simulate", "--progress", "--encoding", "UTF-8",
             "--concurrent-fragments", "4", "--retries", "10", "--fragment-retries", "10",
             "-f", self.quality.selector(),
             "--progress-template", PROGRESS_TEMPLATE,

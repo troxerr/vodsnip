@@ -37,7 +37,7 @@ button.icon { border: 0; background: transparent; padding: 2px 6px; min-height: 
 .field { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--field); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px 0 10px; min-height: 32px; }
 .field:focus-within { border-bottom: 2px solid var(--accent); }
 .field svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
-.field input { flex: 1; border: 0; background: transparent; padding: 4px 0; min-height: 28px; outline: none; user-select: text; }
+.field input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 4px 0; min-height: 28px; outline: none; user-select: text; }
 
 .empty { margin: auto 0; padding: 24px 8px; text-align: center; }
 .empty h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
@@ -65,6 +65,7 @@ select { min-width: 160px; justify-self: start; }
 .folder { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note { margin: -4px 0 0 84px; font-size: 12px; color: var(--muted); }
+.note.error { color: var(--danger); }
 .note.warn { color: var(--warn); }
 details summary { cursor: default; color: var(--muted); padding: 2px 0; }
 details[open] summary { margin-bottom: 8px; }
@@ -89,6 +90,6 @@ progress:not([value])::-webkit-progress-bar { background: linear-gradient(90deg,
 .saved > div { min-width: 0; }
 .saved svg { width: 24px; height: 24px; flex: none; }
 .saved .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.buttons { display: flex; gap: 8px; }
+.buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 [hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { progress { animation: none !important; } progress::-webkit-progress-bar { animation: none !important; } }
