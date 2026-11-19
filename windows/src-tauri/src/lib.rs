@@ -273,6 +273,22 @@ fn open_saved_file(app: AppHandle, state: State<'_, AppState>) -> Result<(), Str
 }
 
 #[tauri::command]
+async fn reveal_saved_file(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let file = state.saved_file.lock().unwrap().clone().ok_or("No saved file is available.")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = std::path::Path::new(&file);
+        if app.opener().reveal_item_in_dir(path).is_ok() {
+            return Ok(());
+        }
+        let folder = path.parent().ok_or("The save folder is unavailable.")?;
+        app.opener().open_path(folder.to_string_lossy(), None::<&str>)
+            .map_err(|e| format!("Could not open the save folder: {e}"))
+    })
+    .await
+    .map_err(|e| format!("Could not show the saved file: {e}"))?
+}
+
+#[tauri::command]
 fn tools_status(app: AppHandle) -> serde_json::Value {
     let t = tools::locate(bundled_dir(&app).as_deref());
     serde_json::json!({
@@ -324,6 +340,7 @@ pub fn run() {
             start_download,
             cancel_download,
             open_saved_file,
+            reveal_saved_file,
             tools_status,
             startup_hooks,
             report_smoke_result,

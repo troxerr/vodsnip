@@ -1,6 +1,5 @@
 const { invoke, Channel } = window.__TAURI__.core;
 const { open } = window.__TAURI__.dialog;
-const { revealItemInDir } = window.__TAURI__.opener;
 const $ = (id) => document.getElementById(id);
 
 const store = {
@@ -279,7 +278,7 @@ $('open-file').onclick = async () => {
   try { await invoke('open_saved_file'); } catch (e) { showError(String(e)); }
 };
 $('reveal').onclick = async () => {
-  try { await revealItemInDir(s.file); } catch (e) { showError(String(e)); }
+  try { await invoke('reveal_saved_file'); } catch (e) { showError(String(e)); }
 };
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') cancelDownload(); });
 
