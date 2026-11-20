@@ -47,12 +47,13 @@
       <div class="row" id="range-row" hidden>
         <label>Range</label>
         <div class="range">
-          <input id="start" type="text" value="00:00:00" aria-label="Start time" spellcheck="false">
+          <input id="start" type="text" value="00:00:00" aria-label="Start time" aria-describedby="range-error" spellcheck="false">
           <span>to</span>
-          <input id="end" type="text" placeholder="end" aria-label="End time" spellcheck="false">
+          <input id="end" type="text" placeholder="end" aria-label="End time" aria-describedby="range-error" spellcheck="false">
           <span id="range-len" class="sub"></span>
         </div>
       </div>
+      <p id="range-error" class="note error" role="status" hidden></p>
       <p id="range-note" class="note" hidden></p>
       <div class="row">
         <label>Quality</label>
@@ -95,7 +96,7 @@
     <div id="bar-done" class="bar" hidden>
       <div class="saved"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#1a7f37"/><path d="M4.6 8.2l2.3 2.3 4.5-4.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <div><div class="title">Saved</div><div id="saved-name" class="sub"></div></div></div>
-      <div class="buttons"><button id="reveal">Show in folder</button><button id="again">Download again</button></div>
+      <div class="buttons"><button id="open-file" hidden>Open file</button><button id="reveal">Show in folder</button><button id="again">Download again</button></div>
     </div>
   </footer>
   <script src="main.js"></script>

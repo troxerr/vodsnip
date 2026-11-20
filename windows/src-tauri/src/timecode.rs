@@ -22,7 +22,8 @@ pub fn parse(text: &str) -> Option<f64> {
     if values.iter().skip(1).any(|v| *v >= 60.0) {
         return None;
     }
-    Some(values.iter().fold(0.0, |acc, v| acc * 60.0 + v))
+    let seconds = values.iter().fold(0.0, |acc, v| acc * 60.0 + v);
+    seconds.is_finite().then_some(seconds)
 }
 
 /// 3725 -> "01:02:05".

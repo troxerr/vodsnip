@@ -3,10 +3,9 @@ use std::ffi::OsString;
 use std::io;
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::Mutex;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 pub struct Output {
     pub stdout: Vec<u8>,
@@ -57,25 +56,41 @@ async fn read_lines<R: AsyncRead + Unpin>(mut reader: R, tx: mpsc::UnboundedSend
 }
 
 /// Runs a command, calling `on_line` for every line of stdout and stderr, and returns the exit code.
-/// The process id goes into `pid_slot` while it runs, so `kill_tree` can stop it.
+/// Returns no exit code when cancelled, after the process has stopped.
 pub async fn stream(
     exe: &Path,
     args: &[String],
     path_env: &OsString,
-    pid_slot: &Mutex<Option<u32>>,
+    cancelled: &mut watch::Receiver<bool>,
     mut on_line: impl FnMut(String),
-) -> io::Result<i32> {
-    let mut child = command(exe, args, path_env).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
-    *pid_slot.lock().unwrap() = child.id();
-    let (tx, mut rx) = mpsc::unbounded_channel();
-    tokio::spawn(read_lines(child.stdout.take().unwrap(), tx.clone()));
-    tokio::spawn(read_lines(child.stderr.take().unwrap(), tx));
-    while let Some(line) = rx.recv().await {
-        on_line(line);
+) -> io::Result<Option<i32>> {
+    if *cancelled.borrow() {
+        return Ok(None);
     }
-    let status = child.wait().await?;
-    *pid_slot.lock().unwrap() = None;
-    Ok(status.code().unwrap_or(-1))
+    let mut child = command(exe, args, path_env).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    let stdout = tokio::spawn(read_lines(child.stdout.take().unwrap(), tx.clone()));
+    let stderr = tokio::spawn(read_lines(child.stderr.take().unwrap(), tx));
+    let status = tokio::select! {
+        biased;
+        result = async {
+            while let Some(line) = rx.recv().await {
+                on_line(line);
+            }
+            child.wait().await
+        } => Some(result?.code().unwrap_or(-1)),
+        _ = cancelled.changed() => {
+            if let Some(pid) = child.id() {
+                tokio::task::spawn_blocking(move || kill_tree(pid)).await.map_err(io::Error::other)?;
+                // If the tree command failed, still terminate and reap the direct child.
+                child.kill().await?;
+            }
+            None
+        }
+    };
+    stdout.abort();
+    stderr.abort();
+    Ok(status)
 }
 
 /// Stops a process and the ffmpeg it started.
@@ -98,6 +113,19 @@ pub fn kill_tree(pid: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn cancelled_job_does_not_spawn() {
+        let (_sender, mut cancelled) = watch::channel(true);
+        let result = stream(
+            Path::new("missing-vodsnip-test-executable"),
+            &[],
+            &OsString::new(),
+            &mut cancelled,
+            |_| {},
+        ).await.unwrap();
+        assert_eq!(result, None);
+    }
 
     #[tokio::test]
     async fn splits_on_cr_and_lf() {
